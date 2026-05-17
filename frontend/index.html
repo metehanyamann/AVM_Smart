@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AVM Smart Track</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            /* Calm, professional slate-blue palette */
+            --bg:         oklch(10%  .004 230);
+            --surface:    oklch(15%  .004 225);
+            --surface-hi: oklch(19%  .005 222);
+            --border:     oklch(26%  .006 222);
+            --text:       oklch(88%  .007 215);
+            --text-2:     oklch(57%  .006 215);
+            --text-3:     oklch(36%  .004 215);
+            --accent:     oklch(66%  .07  222);   /* steel blue */
+            --accent-lo:  oklch(66%  .025 222);
+            --danger:     oklch(60%  .14  20);
+            --danger-lo:  oklch(60%  .05  20);
+            --success:    oklch(64%  .10  155);
+            --success-lo: oklch(64%  .035 155);
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Barlow', sans-serif;
+            font-size: 14px;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── HEADER ───────────────────────────────────────── */
+        .header {
+            position: sticky; top: 0; z-index: 200;
+            height: 52px;
+            display: grid;
+            grid-template-columns: 210px 1fr auto;
+            align-items: center;
+            padding: 0 24px;
+            background: var(--bg);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .wordmark { display: flex; flex-direction: column; gap: 2px; }
+        .wordmark-name {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 16px; font-weight: 700;
+            letter-spacing: .06em; text-transform: uppercase;
+            color: var(--accent); line-height: 1;
+        }
+        .wordmark-sub {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 10px; font-weight: 400;
+            letter-spacing: .10em; text-transform: uppercase;
+            color: var(--text-3); line-height: 1;
+        }
+
+        /* ── TABS ─────────────────────────────────────────── */
+        .tab-nav { display: flex; align-items: stretch; height: 100%; justify-content: center; }
+        .tab-btn {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 12px; font-weight: 700;
+            letter-spacing: .12em; text-transform: uppercase;
+            color: var(--text-3); background: none; border: none;
+            border-bottom: 2px solid transparent;
+            padding: 0 22px; cursor: pointer; height: 100%;
+            transition: color .15s, border-color .15s;
+            display: flex; align-items: center; gap: 7px;
+        }
+        .tab-btn:hover { color: var(--text-2); }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+        .alert-badge {
+            display: none; min-width: 16px; height: 16px;
+            border-radius: 8px; background: var(--danger);
+            color: oklch(96% .01 215); font-size: 10px; font-weight: 700;
+            text-align: center; line-height: 16px; padding: 0 4px;
+        }
+        .alert-badge.visible { display: inline-block; }
+
+        /* ── HEADER RIGHT ─────────────────────────────────── */
+        .header-right { display: flex; align-items: center; gap: 12px; }
+        #authSection  { display: flex; align-items: center; gap: 5px; }
+        #authInfo     { display: none; align-items: center; gap: 7px; }
+
+        .auth-input {
+            height: 28px; padding: 0 9px;
+            background: var(--surface-hi); border: 1px solid var(--border);
+            border-radius: 2px; color: var(--text);
+            font-family: 'Barlow', sans-serif; font-size: 12px;
+            width: 100px; outline: none; transition: border-color .15s;
+        }
+        .auth-input:focus { border-color: var(--accent); }
+
+        .auth-tag {
+            font-family: 'Barlow Condensed', sans-serif; font-size: 11px;
+            font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+            padding: 3px 9px; border-radius: 2px;
+        }
+        .auth-tag.uname { background: var(--surface-hi); color: var(--text); }
+        .auth-tag.role  { background: var(--accent-lo);  color: var(--accent); }
+
+        .status-badge {
+            display: flex; align-items: center; gap: 6px;
+            padding: 4px 10px; border: 1px solid var(--success-lo);
+        }
+        .status-badge.disconnected { border-color: var(--danger-lo); }
+        .status-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--success); flex-shrink: 0;
+            animation: blink 2s ease infinite;
+        }
+        .status-badge.disconnected .status-dot { background: var(--danger); animation: none; }
+        #statusText {
+            font-family: 'Barlow Condensed', sans-serif; font-size: 11px;
+            font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+            color: var(--success);
+        }
+        .status-badge.disconnected #statusText { color: var(--danger); }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+        /* ── BUTTONS ──────────────────────────────────────── */
+        .btn {
+            font-family: 'Barlow Condensed', sans-serif; font-size: 12px;
+            font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+            padding: 5px 13px; border-radius: 2px; border: 1px solid transparent;
+            cursor: pointer; white-space: nowrap;
+            transition: background .15s, color .15s, opacity .15s;
+            display: inline-flex; align-items: center; gap: 5px;
+        }
+        .btn:disabled { opacity: .3; cursor: not-allowed; }
+        .btn-primary  { background: var(--accent); color: oklch(10% .004 230); border-color: var(--accent); }
+        .btn-primary:hover:not(:disabled) { opacity: .85; }
+        .btn-ghost    { background: transparent; color: var(--text-2); border-color: var(--border); }
+        .btn-ghost:hover:not(:disabled) { background: var(--surface-hi); color: var(--text); }
+        .btn-danger   { background: transparent; color: var(--danger); border-color: var(--danger); }
+        .btn-danger:hover:not(:disabled) { background: var(--danger); color: oklch(10% .004 230); }
+        .btn-success  { background: transparent; color: var(--success); border-color: var(--success); }
+        .btn-success:hover:not(:disabled) { background: var(--success); color: oklch(10% .004 230); }
+
+        /* ── TAB PANELS ───────────────────────────────────── */
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+        .page { padding: 16px 24px; max-width: 1800px; margin: 0 auto; }
+
+        /* ── PANEL ────────────────────────────────────────── */
+        .panel { background: var(--surface); border: 1px solid var(--border); }
+        .panel-header {
+            padding: 9px 14px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .panel-title {
+            font-family: 'Barlow Condensed', sans-serif; font-size: 11px;
+            font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+            color: var(--text-2);
+        }
+        .panel-body { padding: 14px; }
+        .panel.danger { border-color: oklch(60% .14 20 / .3); }
+        .panel.danger .panel-header { border-bottom-color: oklch(60% .14 20 / .15); }
+        .panel.danger .panel-title  { color: var(--danger); }
+
+        /* ── LIVE TAB ─────────────────────────────────────── */
+        .live-topbar {
+            display: flex;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            margin-bottom: 14px;
+        }
+
+        .floor-meters { display: flex; align-items: stretch; flex-shrink: 0; }
+        .fm-block {
+            padding: 10px 28px 10px 20px;
+            display: flex; flex-direction: column;
+            justify-content: center; gap: 4px;
+            min-width: 130px; position: relative;
+        }
+        .fm-block + .fm-block::before {
+            content: ''; position: absolute;
+            left: 0; top: 10px; bottom: 10px;
+            width: 1px; background: var(--border);
+        }
+        .fm-num {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 30px; font-weight: 500;
+            color: var(--accent); line-height: 1;
+        }
+        .fm-name {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 10px; font-weight: 700;
+            letter-spacing: .12em; text-transform: uppercase; color: var(--text-3);
+        }
+        .fm-bar { height: 2px; background: var(--border); margin-top: 3px; }
+        .fm-fill { height: 100%; background: var(--accent); transition: width .6s ease; }
+        .fm-block:nth-child(2) .fm-fill { opacity: .7; }
+        .fm-block:nth-child(3) .fm-fill { opacity: .45; }
+
+        .live-controls {
+            flex: 1; display: flex; align-items: center;
+            gap: 7px; padding: 0 16px;
+            border-left: 1px solid var(--border);
+        }
+        .lc-sep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; margin: 0 2px; }
+        .lc-push { margin-left: auto; }
+
+        .live-main {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 14px;
+        }
+
+        .cam-matrix {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            grid-template-rows: auto auto;
+            gap: 10px;
+        }
+
+        .camera-card {
+            background: var(--surface); border: 1px solid var(--border);
+            display: flex; flex-direction: column; transition: border-color .2s;
+        }
+        .camera-card.active { border-color: var(--success); }
+        .camera-card.alert  { border-color: var(--danger); }
+
+        .cam-primary { grid-row: 1 / 3; }
+        .cam-primary .cam-feed { flex: 1; aspect-ratio: unset; min-height: 180px; }
+
+        .cam-head {
+            padding: 8px 12px; display: flex; align-items: center;
+            justify-content: space-between; border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .cam-label { display: flex; flex-direction: column; gap: 1px; }
+        .cam-name {
+            font-family: 'Barlow Condensed', sans-serif; font-size: 13px;
+            font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+        }
+        .cam-floor {
+            font-family: 'Barlow Condensed', sans-serif; font-size: 10px;
+            letter-spacing: .06em; text-transform: uppercase; color: var(--text-3);
+        }
+        .cam-chip {
+            font-family: 'Barlow Condensed', sans-serif; font-size: 10px;
+            font-weight: 700; letter-spacing: .10em; text-transform: uppercase;
+            padding: 2px 8px; flex-shrink: 0;
+        }
+        .cam-chip.off { background: var(--surface-hi); color: var(--text-3); }
+        .cam-chip.on  { background: var(--success-lo); color: var(--success); }
+
+        .cam-feed {
+            position: relative; width: 100%; aspect-ratio: 16/10;
+            background: oklch(6% .003 225); overflow: hidden;
+        }
+        .cam-feed video, .cam-feed canvas {
+            position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+        }
+        .cam-feed canvas { cursor: crosshair; }
+
+        .no-feed {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 8px; color: var(--text-3);
+        }
+        .no-feed-icon { width: 28px; height: 28px; opacity: .18; }
+        .no-feed-label {
+            font-family: 'Barlow Condensed', sans-serif; font-size: 11px;
+            font-weight: 600; letter-spacing: .10em; text-transform: uppercase;
+        }
+
+        .cam-foot {
+            padding: 7px 12px; display: flex; justify-content: space-between;
+            border-top: 1px solid var(--border); flex-shrink: 0;
+        }
+        .cam-stat { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-3); }
+        .cam-stat span { color: var(--text); }
+
+        .op-sidebar { display: flex; flex-direction: column; gap: 12px; }
+        .op-sidebar .panel.flex-grow {
+            flex: 1; display: flex; flex-direction: column; min-height: 0;
+        }
+        .op-sidebar .panel.flex-grow .panel-body {
+            flex: 1; overflow-y: auto; min-height: 0; padding: 10px 14px;
+        }
+        .op-sidebar .panel.flex-grow .panel-body::-webkit-scrollbar { width: 3px; }
+        .op-sidebar .panel.flex-grow .panel-body::-webkit-scrollbar-thumb { background: var(--border); }
+
+        .scroll-list { overflow-y: auto; }
+        .scroll-list::-webkit-scrollbar { width: 3px; }
+        .scroll-list::-webkit-scrollbar-track { background: transparent; }
+        .scroll-list::-webkit-scrollbar-thumb { background: var(--border); }
+
+        .track-item { padding: 8px 10px; border: 1px solid var(--border); margin-bottom: 5px; }
+        .track-item:last-child { margin-bottom: 0; }
+        .track-head { display: flex; justify-content: space-between; margin-bottom: 3px; }
+        .track-id { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--accent); letter-spacing: .04em; }
+        .track-name { font-size: 12px; font-weight: 500; color: var(--success); }
+        .track-meta { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-3); display: flex; gap: 10px; }
+
+        .alert-item {
+            padding: 8px 10px; margin-bottom: 5px;
+            border: 1px solid oklch(60% .14 20 / .25);
+            background: oklch(60% .14 20 / .04);
+        }
+        .alert-item:last-child { margin-bottom: 0; }
+
+        .li { padding: 9px 0; border-bottom: 1px solid oklch(26% .006 222 / .6); display: flex; justify-content: space-between; align-items: flex-start; }
+        .li:last-child { border-bottom: none; }
+        .li-name { font-size: 13px; font-weight: 500; }
+        .li-meta { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+        .li-del {
+            font-family: 'Barlow Condensed', sans-serif; font-size: 10px; font-weight: 700;
+            letter-spacing: .08em; text-transform: uppercase; padding: 2px 7px;
+            background: transparent; border: 1px solid var(--border); color: var(--danger);
+            cursor: pointer; border-radius: 1px; flex-shrink: 0; transition: background .15s;
+        }
+        .li-del:hover { background: var(--danger-lo); }
+
+        .count { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-3); }
+
+        .empty {
+            padding: 22px 16px; text-align: center; color: var(--text-3);
+            font-family: 'Barlow Condensed', sans-serif; font-size: 11px;
+            font-weight: 600; letter-spacing: .10em; text-transform: uppercase;
+        }
+
+        /* ── ANALYTICS TAB ────────────────────────────────── */
+
+        /* Peak floor banner */
+        .peak-banner {
+            display: flex; align-items: center; gap: 20px;
+            padding: 12px 18px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            margin-bottom: 14px;
+        }
+        .peak-label {
+            font-family: 'Barlow Condensed', sans-serif; font-size: 10px; font-weight: 700;
+            letter-spacing: .14em; text-transform: uppercase; color: var(--text-3);
+            white-space: nowrap;
+        }
+        .peak-value {
+            font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 500;
+            color: var(--accent);
+        }
+        .peak-sep { width: 1px; height: 28px; background: var(--border); }
+
+        .peak-mini {
+            display: flex; flex-direction: column; gap: 2px;
+        }
+        .peak-mini-label {
+            font-family: 'Barlow Condensed', sans-serif; font-size: 9px; font-weight: 700;
+            letter-spacing: .12em; text-transform: uppercase; color: var(--text-3);
+        }
+        .peak-mini-val {
+            font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 500;
+            color: var(--text);
+        }
+        .peak-banner-push { margin-left: auto; }
+
+        /* Floor selector */
+        .floor-selector {
+            display: flex; gap: 0;
+            border: 1px solid var(--border);
+            margin-bottom: 14px;
+            width: fit-content;
+        }
+        .floor-sel-btn {
+            font-family: 'Barlow Condensed', sans-serif; font-size: 12px; font-weight: 700;
+            letter-spacing: .10em; text-transform: uppercase;
+            padding: 8px 24px; background: transparent;
+            color: var(--text-3); border: none;
+            border-right: 1px solid var(--border);
+            cursor: pointer; transition: background .15s, color .15s;
+        }
+        .floor-sel-btn:last-child { border-right: none; }
+        .floor-sel-btn:hover { background: var(--surface-hi); color: var(--text-2); }
+        .floor-sel-btn.active { background: var(--accent-lo); color: var(--accent); }
+
+        /* Floor detail section */
+        .floor-detail {
+            margin-bottom: 16px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+        }
+        .floor-detail-header {
+            padding: 9px 14px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .floor-detail-title {
+            font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700;
+            letter-spacing: .12em; text-transform: uppercase; color: var(--accent);
+        }
+
+        /* Floor mini-stats */
+        .floor-mini-stats {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            border-bottom: 1px solid var(--border);
+        }
+        .fms-card {
+            padding: 12px 16px; border-right: 1px solid var(--border);
+        }
+        .fms-card:last-child { border-right: none; }
+        .fms-val {
+            font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 500;
+            color: var(--text); line-height: 1; margin-bottom: 5px;
+        }
+        .fms-lbl {
+            font-family: 'Barlow Condensed', sans-serif; font-size: 9px; font-weight: 700;
+            letter-spacing: .12em; text-transform: uppercase; color: var(--text-3);
+        }
+        .fms-card.hi .fms-val { color: var(--accent); }
+
+        /* Floor chart area */
+        .floor-chart-area { padding: 14px; height: 200px; position: relative; }
+        .floor-chart-empty {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Barlow Condensed', sans-serif; font-size: 11px;
+            font-weight: 600; letter-spacing: .10em; text-transform: uppercase;
+            color: var(--text-3);
+        }
+
+        /* Overall stat cards */
+        .stats-row {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            gap: 10px; margin-bottom: 16px;
+        }
+        .stat-card { background: var(--surface); border: 1px solid var(--border); padding: 14px 16px; }
+        .stat-val {
+            font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 500;
+            color: var(--text); line-height: 1; margin-bottom: 7px;
+        }
+        .stat-lbl {
+            font-family: 'Barlow Condensed', sans-serif; font-size: 10px; font-weight: 700;
+            letter-spacing: .12em; text-transform: uppercase; color: var(--text-3);
+        }
+        .stat-card.hi  .stat-val { color: var(--accent); }
+        .stat-card.red .stat-val { color: var(--danger); }
+
+        .charts-row { display: grid; grid-template-columns: 1fr 2fr; gap: 14px; margin-bottom: 16px; }
+        .chart-wrap { background: var(--surface); border: 1px solid var(--border); }
+        .chart-head {
+            padding: 9px 14px; border-bottom: 1px solid var(--border);
+            font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700;
+            letter-spacing: .12em; text-transform: uppercase; color: var(--text-2);
+        }
+        .chart-canvas-area { padding: 14px; height: 200px; }
+
+        .report-content { overflow-y: auto; }
+        .report-content::-webkit-scrollbar { width: 3px; }
+        .report-content::-webkit-scrollbar-thumb { background: var(--border); }
+
+        .report-summary { display: grid; grid-template-columns: repeat(3,1fr); gap:10px; margin-bottom:16px; }
+        .rstat { background: var(--surface-hi); border: 1px solid var(--border); padding: 12px 14px; text-align:center; }
+        .rstat .v { font-family:'JetBrains Mono',monospace; font-size:22px; font-weight:500; color:var(--accent); }
+        .rstat .l { font-family:'Barlow Condensed',sans-serif; font-size:10px; font-weight:700; letter-spacing:.10em; text-transform:uppercase; color:var(--text-3); margin-top:4px; }
+        .report-section { margin-top: 16px; }
+        .report-section-title { font-family:'Barlow Condensed',sans-serif; font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--text-3); padding-bottom:6px; border-bottom:1px solid var(--border); margin-bottom:10px; }
+        .movement-item { padding:9px 12px; border:1px solid var(--border); margin-bottom:6px; font-size:12px; }
+        .movement-item .person-header { display:flex; justify-content:space-between; margin-bottom:5px; }
+        .movement-item .person-id { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--accent); }
+        .movement-item .person-duration { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-2); }
+        .movement-item .floor-path { display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+        .floor-chip { font-family:'Barlow Condensed',sans-serif; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; padding:1px 7px; border:1px solid var(--border); color:var(--text-2); }
+        .floor-chip.f1 { border-color:oklch(66% .07 222 / .4); color:var(--accent); }
+        .floor-chip.f2 { border-color:oklch(66% .07 222 / .25); color:oklch(62% .05 222); }
+        .floor-chip.f3 { border-color:oklch(66% .07 222 / .15); color:oklch(50% .04 222); }
+        .floor-arrow { color:var(--text-3); font-size:10px; }
+
+        /* ── TABS 3 & 4 ───────────────────────────────────── */
+        .security-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+        .people-top { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+        .people-section-label { font-family:'Barlow Condensed',sans-serif; font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--text-2); }
+
+        /* ── MODAL ────────────────────────────────────────── */
+        .modal-overlay { display:none; position:fixed; inset:0; background:oklch(0% 0 0 / .78); z-index:500; align-items:center; justify-content:center; }
+        .modal-overlay.active { display:flex; }
+        .modal-box { background:var(--surface); border:1px solid var(--border); padding:28px; width:380px; max-width:90vw; }
+        .modal-title { font-family:'Barlow Condensed',sans-serif; font-size:15px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text); margin-bottom:20px; }
+        .modal-input { width:100%; padding:9px 12px; background:var(--surface-hi); border:1px solid var(--border); border-radius:2px; color:var(--text); font-family:'Barlow',sans-serif; font-size:13px; outline:none; margin-bottom:12px; transition:border-color .15s; }
+        .modal-input:focus { border-color:var(--accent); }
+        .modal-file-lbl { font-family:'Barlow Condensed',sans-serif; font-size:10px; font-weight:700; letter-spacing:.10em; text-transform:uppercase; color:var(--text-3); display:block; margin-bottom:5px; }
+        .modal-buttons { display:flex; gap:8px; justify-content:flex-end; margin-top:20px; }
+
+        /* ── LOADING & STATUS ─────────────────────────────── */
+        #loading { display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); padding:13px 26px; background:var(--surface); border:1px solid var(--border); font-family:'Barlow Condensed',sans-serif; font-size:12px; font-weight:700; letter-spacing:.10em; text-transform:uppercase; color:var(--text-2); z-index:600; align-items:center; gap:10px; }
+        #loading.active { display:flex; }
+        .spinner { width:16px; height:16px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; flex-shrink:0; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+        #statusMessage { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); padding:7px 18px; background:var(--surface-hi); border:1px solid var(--border); font-family:'Barlow Condensed',sans-serif; font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--text-2); z-index:600; opacity:0; transition:opacity .25s; pointer-events:none; white-space:nowrap; }
+        #statusMessage.visible { opacity:1; }
+
+        /* ── RESPONSIVE ───────────────────────────────────── */
+        @media (max-width: 1400px) { .live-main { grid-template-columns: 1fr 280px; } }
+        @media (max-width: 1200px) {
+            .charts-row { grid-template-columns: 1fr; }
+            .stats-row  { grid-template-columns: repeat(2,1fr); }
+            .live-main  { grid-template-columns: 1fr; }
+            .cam-matrix { grid-template-columns: 1fr 1fr; }
+            .cam-primary { grid-row: unset; }
+            .cam-primary .cam-feed { flex: unset; aspect-ratio: 16/10; }
+            .floor-mini-stats { grid-template-columns: repeat(2,1fr); }
+        }
+        @media (max-width: 900px) {
+            .security-grid { grid-template-columns: 1fr; }
+            .peak-banner { flex-wrap: wrap; gap: 12px; }
+        }
+        @media (max-width: 768px) {
+            .header { grid-template-columns: 1fr auto; }
+            .tab-nav { display: none; }
+            .cam-matrix { grid-template-columns: 1fr; }
+            .cam-primary { grid-row: unset; }
+            .stats-row { grid-template-columns: repeat(2,1fr); }
+            .floor-mini-stats { grid-template-columns: repeat(2,1fr); }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════ HEADER -->
+<header class="header">
+    <div class="wordmark">
+        <div class="wordmark-name">AVM Smart Track</div>
+        <div class="wordmark-sub">Güvenlik Operasyon Sistemi</div>
+    </div>
+
+    <nav class="tab-nav" role="tablist">
+        <button class="tab-btn active" onclick="switchTab('live')"      role="tab">Canlı İzleme</button>
+        <button class="tab-btn"        onclick="switchTab('analytics')" role="tab">Analitik</button>
+        <button class="tab-btn"        onclick="switchTab('security')"  role="tab">
+            Güvenlik
+            <span class="alert-badge" id="alertTabBadge"></span>
+        </button>
+        <button class="tab-btn"        onclick="switchTab('people')"    role="tab">Kişiler</button>
+    </nav>
+
+    <div class="header-right">
+        <div id="authSection">
+            <input type="text"     class="auth-input" id="loginUser" placeholder="Kullanıcı" value="admin">
+            <input type="password" class="auth-input" id="loginPass" placeholder="Şifre"     value="admin123">
+            <button class="btn btn-success" onclick="doLogin()">Giriş</button>
+        </div>
+        <div id="authInfo">
+            <span class="auth-tag uname" id="authUsername"></span>
+            <span class="auth-tag role"  id="authRole"></span>
+            <button class="btn btn-ghost" onclick="doLogout()">Çıkış</button>
+        </div>
+        <div class="status-badge" id="statusBadge">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="statusText">Bağlanıyor</span>
+        </div>
+    </div>
+</header>
+
+
+<!-- ══════════════════════════════════════ TAB 1: CANLI -->
+<div class="tab-panel active" id="tabLive">
+    <div class="page">
+
+        <!-- Floor meters + controls -->
+        <div class="live-topbar">
+            <div class="floor-meters" id="floorTrafficBars">
+                <div class="fm-block">
+                    <div class="fm-num" id="floor1Count">0</div>
+                    <div class="fm-name">Kat 1 — Giriş</div>
+                    <div class="fm-bar"><div class="fm-fill" id="floor1Bar" style="width:0%"></div></div>
+                </div>
+                <div class="fm-block">
+                    <div class="fm-num" id="floor2Count">0</div>
+                    <div class="fm-name">Kat 2</div>
+                    <div class="fm-bar"><div class="fm-fill" id="floor2Bar" style="width:0%"></div></div>
+                </div>
+                <div class="fm-block">
+                    <div class="fm-num" id="floor3Count">0</div>
+                    <div class="fm-name">Kat 3</div>
+                    <div class="fm-bar"><div class="fm-fill" id="floor3Bar" style="width:0%"></div></div>
+                </div>
+            </div>
+            <div class="live-controls">
+                <button class="btn btn-primary" id="startAllBtn" onclick="startAllCameras()">Tümünü Başlat</button>
+                <button class="btn btn-ghost"   id="stopAllBtn"  onclick="stopAllCameras()" disabled>Durdur</button>
+                <button class="btn btn-ghost"                    onclick="discoverCameras()">Tara</button>
+                <div class="lc-sep"></div>
+                <button class="btn btn-success" id="captureBtn"  onclick="registerPerson()" disabled>Kişiyi Kaydet</button>
+                <div class="lc-sep"></div>
+                <button class="btn btn-danger"  id="resetBtn"    onclick="resetDatabase()">Temizle</button>
+                <div class="lc-push"></div>
+                <button class="btn btn-ghost"   id="reportBtn"   onclick="loadFloorReport(); switchTab('analytics');">Rapor →</button>
+            </div>
+        </div>
+
+        <!-- Camera matrix + sidebar -->
+        <div class="live-main">
+            <div class="cam-matrix" id="cameraGrid">
+
+                <div class="camera-card cam-primary" id="cameraCard0">
+                    <div class="cam-head">
+                        <div class="cam-label">
+                            <div class="cam-name"  id="camName0">Kamera 1</div>
+                            <div class="cam-floor" id="camFloor0">Giriş / Kat 1</div>
+                        </div>
+                        <span class="cam-chip off" id="camStatus0">Kapalı</span>
+                    </div>
+                    <div class="cam-feed" id="camFeed0">
+                        <video id="video0" autoplay playsinline muted></video>
+                        <canvas id="canvas0"></canvas>
+                        <div class="no-feed" id="noFeed0">
+                            <svg class="no-feed-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="15" height="10" rx="1.5"/><path d="M17 10l4-2v8l-4-2"/></svg>
+                            <span class="no-feed-label">Sinyal Yok</span>
+                        </div>
+                    </div>
+                    <div class="cam-foot">
+                        <div class="cam-stat">Aktif: <span id="camActive0">0</span></div>
+                        <div class="cam-stat"><span id="camFps0">0</span> fps</div>
+                        <div class="cam-stat"><span id="camProcess0">0</span> ms</div>
+                    </div>
+                </div>
+
+                <div class="camera-card" id="cameraCard1">
+                    <div class="cam-head">
+                        <div class="cam-label">
+                            <div class="cam-name"  id="camName1">Kamera 2</div>
+                            <div class="cam-floor" id="camFloor1">Kat 2</div>
+                        </div>
+                        <span class="cam-chip off" id="camStatus1">Kapalı</span>
+                    </div>
+                    <div class="cam-feed" id="camFeed1">
+                        <video id="video1" autoplay playsinline muted></video>
+                        <canvas id="canvas1"></canvas>
+                        <div class="no-feed" id="noFeed1">
+                            <svg class="no-feed-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="15" height="10" rx="1.5"/><path d="M17 10l4-2v8l-4-2"/></svg>
+                            <span class="no-feed-label">Sinyal Yok</span>
+                        </div>
+                    </div>
+                    <div class="cam-foot">
+                        <div class="cam-stat">Aktif: <span id="camActive1">0</span></div>
+                        <div class="cam-stat"><span id="camFps1">0</span> fps</div>
+                        <div class="cam-stat"><span id="camProcess1">0</span> ms</div>
+                    </div>
+                </div>
+
+                <div class="camera-card" id="cameraCard2">
+                    <div class="cam-head">
+                        <div class="cam-label">
+                            <div class="cam-name"  id="camName2">Kamera 3</div>
+                            <div class="cam-floor" id="camFloor2">Kat 3</div>
+                        </div>
+                        <span class="cam-chip off" id="camStatus2">Kapalı</span>
+                    </div>
+                    <div class="cam-feed" id="camFeed2">
+                        <video id="video2" autoplay playsinline muted></video>
+                        <canvas id="canvas2"></canvas>
+                        <div class="no-feed" id="noFeed2">
+                            <svg class="no-feed-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="15" height="10" rx="1.5"/><path d="M17 10l4-2v8l-4-2"/></svg>
+                            <span class="no-feed-label">Sinyal Yok</span>
+                        </div>
+                    </div>
+                    <div class="cam-foot">
+                        <div class="cam-stat">Aktif: <span id="camActive2">0</span></div>
+                        <div class="cam-stat"><span id="camFps2">0</span> fps</div>
+                        <div class="cam-stat"><span id="camProcess2">0</span> ms</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Operational sidebar -->
+            <div class="op-sidebar">
+                <div class="panel flex-grow">
+                    <div class="panel-header">
+                        <div class="panel-title">Aktif Takipler</div>
+                        <span class="count" id="totalActiveTracks">0</span>
+                    </div>
+                    <div class="panel-body" id="activeTracksList">
+                        <div class="empty">Aktif takip yok</div>
+                    </div>
+                </div>
+                <div class="panel danger" style="flex-shrink:0;">
+                    <div class="panel-header">
+                        <div class="panel-title">Canlı Alarmlar</div>
+                        <span class="count" id="totalAlerts" style="color:var(--danger);">0</span>
+                    </div>
+                    <div class="panel-body">
+                        <div class="scroll-list" style="max-height:200px;" id="activeAlertsList">
+                            <div class="empty">Alarm yok</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Camera assignment -->
+        <div class="panel" style="margin-top:14px;">
+            <div class="panel-header">
+                <div class="panel-title">Kamera Eşleştirme</div>
+                <button class="btn btn-ghost" style="font-size:10px;padding:2px 8px;" onclick="discoverCameras()">Tara</button>
+            </div>
+            <div class="panel-body" id="cameraAssignmentPanel" style="padding:8px 14px;">
+                <div class="empty" style="padding:8px;">Kamera taraması bekleniyor</div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════ TAB 2: ANALYTICS -->
+<div class="tab-panel" id="tabAnalytics">
+    <div class="page">
+
+        <!-- Peak floor banner -->
+        <div class="peak-banner" id="peakBanner">
+            <div>
+                <div class="peak-label">En Yoğun Kat</div>
+                <div class="peak-value" id="peakFloorLabel">—</div>
+            </div>
+            <div class="peak-sep"></div>
+            <div class="peak-mini">
+                <div class="peak-mini-label">Anlık Kişi</div>
+                <div class="peak-mini-val" id="peakFloorCount">—</div>
+            </div>
+            <div class="peak-sep"></div>
+            <div class="peak-mini">
+                <div class="peak-mini-label">Toplam (3 Kat)</div>
+                <div class="peak-mini-val" id="analyticsTotal">—</div>
+            </div>
+            <div class="peak-sep"></div>
+            <div class="peak-mini">
+                <div class="peak-mini-label">Aktif Alarm</div>
+                <div class="peak-mini-val" id="analyticsAlerts" style="color:var(--danger);">—</div>
+            </div>
+            <div class="peak-banner-push"></div>
+            <div class="peak-mini" style="text-align:right;">
+                <div class="peak-mini-label">Son Snapshot</div>
+                <div class="peak-mini-val" id="lastSnapshotTime" style="color:var(--text-3);">—</div>
+            </div>
+        </div>
+
+        <!-- Floor selector -->
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;">
+            <div class="floor-selector">
+                <button class="floor-sel-btn" id="floorSelBtn1" onclick="selectFloor(1)">Kat 1 — Giriş</button>
+                <button class="floor-sel-btn" id="floorSelBtn2" onclick="selectFloor(2)">Kat 2</button>
+                <button class="floor-sel-btn" id="floorSelBtn3" onclick="selectFloor(3)">Kat 3</button>
+            </div>
+            <span style="font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--text-3);">
+                Kat seçerek 2 dakikalık trafik analizi görün
+            </span>
+        </div>
+
+        <!-- Floor detail panel (shown when a floor is selected) -->
+        <div class="floor-detail" id="floorDetailPanel" style="display:none;">
+            <div class="floor-detail-header">
+                <div class="floor-detail-title" id="floorDetailTitle">KAT — ANALİZ</div>
+                <button class="btn btn-ghost" style="font-size:10px;padding:2px 8px;" onclick="refreshFloorAnalytics()">Yenile</button>
+            </div>
+            <div class="floor-mini-stats">
+                <div class="fms-card hi">
+                    <div class="fms-val" id="fmsLatest">—</div>
+                    <div class="fms-lbl">Anlık Kişi</div>
+                </div>
+                <div class="fms-card">
+                    <div class="fms-val" id="fmsPeak">—</div>
+                    <div class="fms-lbl">Pik Değer</div>
+                </div>
+                <div class="fms-card">
+                    <div class="fms-val" id="fmsAvg">—</div>
+                    <div class="fms-lbl">Ortalama</div>
+                </div>
+                <div class="fms-card">
+                    <div class="fms-val" id="fmsPeakTime">—</div>
+                    <div class="fms-lbl">Pik Saat</div>
+                </div>
+            </div>
+            <div class="floor-chart-area">
+                <canvas id="floorDetailCanvas"></canvas>
+                <div class="floor-chart-empty" id="floorChartEmpty">Henüz yeterli veri yok — 2 dakika bekleyin</div>
+            </div>
+        </div>
+
+        <!-- Overall comparison charts -->
+        <div class="charts-row">
+            <div class="chart-wrap">
+                <div class="chart-head">Kat Karşılaştırması</div>
+                <div class="chart-canvas-area"><canvas id="floorChartCanvas"></canvas></div>
+            </div>
+            <div class="chart-wrap">
+                <div class="chart-head">Zaman Serisi — 5 saniyelik örnekler</div>
+                <div class="chart-canvas-area"><canvas id="timeChartCanvas"></canvas></div>
+            </div>
+        </div>
+
+        <!-- Report -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">Trafik Analiz Raporu</div>
+                <button class="btn btn-ghost" style="font-size:10px;padding:3px 10px;" onclick="loadFloorReport()">Yenile</button>
+            </div>
+            <div class="panel-body">
+                <div class="report-content" style="max-height:400px;" id="reportContent">
+                    <div class="empty">Canlı sekmesinde "Rapor →" butonuna basın</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════ TAB 3: SECURITY -->
+<div class="tab-panel" id="tabSecurity">
+    <div class="page">
+        <div class="security-grid">
+            <div class="panel danger">
+                <div class="panel-header">
+                    <div class="panel-title">Aranan Kişiler</div>
+                    <button class="btn btn-danger" style="font-size:10px;padding:3px 10px;" onclick="showAddWantedModal()">+ Ekle</button>
+                </div>
+                <div class="panel-body">
+                    <div class="scroll-list" style="max-height:580px;" id="wantedList">
+                        <div class="empty">Aranan kişi kaydı yok</div>
+                    </div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">Son Alarmlar</div>
+                    <span class="count" id="secAlertCount">0</span>
+                </div>
+                <div class="panel-body">
+                    <div class="scroll-list" style="max-height:580px;" id="securityAlertLog">
+                        <div class="empty">Alarm geçmişi yok</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════ TAB 4: PEOPLE -->
+<div class="tab-panel" id="tabPeople">
+    <div class="page">
+        <div class="people-top">
+            <span class="people-section-label">Kayıtlı Kişiler</span>
+            <span class="count" id="totalPeople">0</span>
+        </div>
+        <div class="panel">
+            <div class="panel-body" style="padding:0 14px;">
+                <div class="scroll-list" style="max-height:640px;" id="registeredList">
+                    <div class="empty" style="padding:36px;">Henüz kayıtlı kişi yok</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════ MODALS -->
+<div class="modal-overlay" id="registerModal">
+    <div class="modal-box">
+        <div class="modal-title">Kişi Kaydı</div>
+        <input type="text" class="modal-input" id="personName" placeholder="Ad ve soyad..." autofocus>
+        <div class="modal-buttons">
+            <button class="btn btn-ghost"   onclick="cancelRegister()">İptal</button>
+            <button class="btn btn-success" onclick="confirmRegister()">Kaydet</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="wantedModal">
+    <div class="modal-box">
+        <div class="modal-title" style="color:var(--danger);">Aranan Kişi Ekle</div>
+        <input type="text" class="modal-input" id="wantedName" placeholder="Ad ve soyad..." autofocus>
+        <input type="text" class="modal-input" id="wantedDesc" placeholder="Suç türü / açıklama...">
+        <label class="modal-file-lbl">Fotoğraf</label>
+        <!-- Hidden file input (triggered programmatically) -->
+        <input type="file" id="wantedPhoto" accept=".jpg,.jpeg,.png" style="display:none;">
+        <!-- Drag & drop zone -->
+        <div id="wantedDropZone" style="
+            border: 2px dashed var(--border);
+            padding: 20px 12px;
+            text-align: center;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: border-color .2s, background .2s;
+            font-family: 'Barlow', sans-serif;
+            font-size: 12px;
+            color: var(--text-3);
+        ">
+            <div id="wantedDropLabel">📷 Fotoğrafı buraya sürükle veya tıkla</div>
+            <div id="wantedDropPreview" style="display:none; margin-top:8px;">
+                <img id="wantedPreviewImg" style="max-width:100%; max-height:120px; border:1px solid var(--border);">
+                <div id="wantedFileName" style="margin-top:4px; color:var(--text-2); font-size:11px;"></div>
+            </div>
+        </div>
+        <div class="modal-buttons">
+            <button class="btn btn-ghost"  onclick="cancelAddWanted()">İptal</button>
+            <button class="btn btn-danger" onclick="confirmAddWanted()">Kaydet</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════ LOADING + STATUS -->
+<div id="loading"><span class="spinner"></span> İşleniyor</div>
+<div id="statusMessage"></div>
+
+
+<!-- ══════════════════════════════════════ SCRIPTS -->
+<script src="/static/app.js?v=18"></script>
+<script>
+(function () {
+    'use strict';
+
+    const API = 'http://localhost:8000/api/v1';
+
+    /* ── Tab routing ── */
+    const TAB_MAP = {
+        live:      { panel: 'tabLive',      idx: 0 },
+        analytics: { panel: 'tabAnalytics', idx: 1 },
+        security:  { panel: 'tabSecurity',  idx: 2 },
+        people:    { panel: 'tabPeople',    idx: 3 },
+    };
+    const tabBtns = document.querySelectorAll('.tab-btn');
+
+    function switchTab(name) {
+        const entry = TAB_MAP[name];
+        if (!entry) return;
+        tabBtns.forEach((b, i) => b.classList.toggle('active', i === entry.idx));
+        Object.values(TAB_MAP).forEach(e => {
+            const p = document.getElementById(e.panel);
+            if (p) p.classList.remove('active');
+        });
+        const panel = document.getElementById(entry.panel);
+        if (panel) panel.classList.add('active');
+        if (name === 'analytics') _refreshBanner();
+    }
+    window.switchTab = switchTab;
+
+    /* ── Helpers ── */
+    function _n(id) {
+        return parseInt(document.getElementById(id)?.textContent || '0', 10);
+    }
+    function _set(id, v) {
+        const e = document.getElementById(id);
+        if (e) e.textContent = v;
+    }
+    function _authHeaders() {
+        const tok = localStorage.getItem('authToken');
+        return tok ? { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' }
+                   : { 'Content-Type': 'application/json' };
+    }
+
+    /* ── Peak floor banner ── */
+    function _refreshBanner() {
+        const f1 = _n('floor1Count'), f2 = _n('floor2Count'), f3 = _n('floor3Count');
+        const total = f1 + f2 + f3;
+        const counts = [f1, f2, f3];
+        const peakIdx = counts.indexOf(Math.max(...counts));
+        const peakNames = ['Kat 1', 'Kat 2', 'Kat 3'];
+        _set('peakFloorLabel', peakNames[peakIdx]);
+        _set('peakFloorCount', counts[peakIdx]);
+        _set('analyticsTotal', total);
+        _set('analyticsAlerts', _n('totalAlerts'));
+    }
+
+    /* ── Floor snapshot: POST floor counts to backend every 2 min ── */
+    async function sendFloorSnapshot() {
+        try {
+            const payload = {
+                floors: [
+                    { floor: 1, count: _n('floor1Count') },
+                    { floor: 2, count: _n('floor2Count') },
+                    { floor: 3, count: _n('floor3Count') },
+                ]
+            };
+            await fetch(API + '/tracking/floor-snapshot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const now = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+            _set('lastSnapshotTime', now);
+            if (_activeFloor) refreshFloorAnalytics();
+        } catch (_) { /* non-critical */ }
+    }
+
+    /* Run immediately on page load, then every 2 min */
+    sendFloorSnapshot();
+    setInterval(sendFloorSnapshot, 2 * 60 * 1000);
+
+    /* ── Floor selector ── */
+    let _activeFloor = null;
+    let _detailChart = null;
+
+    function selectFloor(floor) {
+        _activeFloor = floor;
+        [1, 2, 3].forEach(f => {
+            const btn = document.getElementById('floorSelBtn' + f);
+            if (btn) btn.classList.toggle('active', f === floor);
+        });
+        const floorNames = { 1: 'Kat 1 — Giriş', 2: 'Kat 2', 3: 'Kat 3' };
+        _set('floorDetailTitle', floorNames[floor] + ' — 2 Dakikalık Analiz');
+        document.getElementById('floorDetailPanel').style.display = 'block';
+        refreshFloorAnalytics();
+    }
+    window.selectFloor = selectFloor;
+
+    async function refreshFloorAnalytics() {
+        if (!_activeFloor) return;
+        try {
+            const res = await fetch(
+                API + '/tracking/floor-analytics?floor=' + _activeFloor + '&limit=30',
+                { headers: _authHeaders() }
+            );
+            if (!res.ok) {
+                _showChartEmpty(true);
+                return;
+            }
+            const data = await res.json();
+            const { snapshots, summary, peak_floor } = data;
+
+            /* Mini stats */
+            _set('fmsLatest',   summary.latest_count);
+            _set('fmsPeak',     summary.peak_count);
+            _set('fmsAvg',      summary.avg_count);
+            _set('fmsPeakTime', summary.peak_time || '—');
+
+            /* Peak floor banner update from DB */
+            if (peak_floor) {
+                const pn = ['', 'Kat 1', 'Kat 2', 'Kat 3'];
+                _set('peakFloorLabel', pn[peak_floor.floor] || '—');
+                _set('peakFloorCount', peak_floor.count);
+            }
+
+            if (!snapshots || snapshots.length === 0) {
+                _showChartEmpty(true);
+                return;
+            }
+            _showChartEmpty(false);
+            _renderDetailChart(snapshots);
+        } catch (_) {
+            _showChartEmpty(true);
+        }
+    }
+    window.refreshFloorAnalytics = refreshFloorAnalytics;
+
+    function _showChartEmpty(show) {
+        const empty = document.getElementById('floorChartEmpty');
+        const canvas = document.getElementById('floorDetailCanvas');
+        if (empty)  empty.style.display  = show ? 'flex' : 'none';
+        if (canvas) canvas.style.display = show ? 'none' : 'block';
+    }
+
+    function _renderDetailChart(snapshots) {
+        const canvas = document.getElementById('floorDetailCanvas');
+        if (!canvas) return;
+        const labels = snapshots.map(s => s.label);
+        const counts = snapshots.map(s => s.count);
+
+        const BDR   = 'oklch(26% .006 222)';
+        const MUTED = 'oklch(36% .004 215)';
+        const ACC   = 'oklch(66% .07 222)';
+
+        if (_detailChart) {
+            _detailChart.data.labels = labels;
+            _detailChart.data.datasets[0].data = counts;
+            _detailChart.update('none');
+            return;
+        }
+
+        _detailChart = new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Kişi Sayısı',
+                    data: counts,
+                    backgroundColor: counts.map((_, i) =>
+                        i === counts.length - 1
+                            ? ACC
+                            : 'oklch(66% .07 222 / .35)'
+                    ),
+                    borderColor: ACC,
+                    borderWidth: 1,
+                    borderRadius: 0,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 300 },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            title: (ctx) => ctx[0].label + ' — ' + (snapshots[ctx[0].dataIndex]?.recorded_at?.slice(0,10) || ''),
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: MUTED, maxRotation: 0, font: { family: "'JetBrains Mono', monospace", size: 9 } },
+                        border: { color: BDR },
+                    },
+                    y: {
+                        grid: { color: BDR },
+                        ticks: { precision: 0, color: MUTED, font: { family: "'JetBrains Mono', monospace", size: 9 } },
+                        border: { color: BDR },
+                        min: 0,
+                    }
+                }
+            }
+        });
+    }
+
+    /* ── Overall comparison charts ── */
+    function initOverallCharts() {
+        if (typeof Chart === 'undefined') { setTimeout(initOverallCharts, 200); return; }
+
+        const BDR   = 'oklch(26% .006 222)';
+        const MUTED = 'oklch(36% .004 215)';
+        const ACC   = 'oklch(66% .07 222)';
+
+        Chart.defaults.color       = MUTED;
+        Chart.defaults.borderColor = BDR;
+        Chart.defaults.font.family = "'JetBrains Mono', monospace";
+        Chart.defaults.font.size   = 10;
+
+        const floorChart = new Chart(document.getElementById('floorChartCanvas'), {
+            type: 'bar',
+            data: {
+                labels: ['Kat 1', 'Kat 2', 'Kat 3'],
+                datasets: [{
+                    label: 'Kişi',
+                    data: [0, 0, 0],
+                    backgroundColor: [
+                        'oklch(66% .07 222 / .75)',
+                        'oklch(66% .07 222 / .50)',
+                        'oklch(66% .07 222 / .28)',
+                    ],
+                    borderColor: ACC,
+                    borderWidth: 1,
+                    borderRadius: 0,
+                }]
+            },
+            options: {
+                indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                animation: { duration: 400 },
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { color: BDR }, ticks: { precision: 0 }, border: { color: BDR }, min: 0 },
+                    y: { grid: { display: false }, border: { color: BDR } }
+                }
+            }
+        });
+
+        const PTS = 30;
+        const d1 = Array(PTS).fill(0), d2 = Array(PTS).fill(0), d3 = Array(PTS).fill(0);
+
+        const timeChart = new Chart(document.getElementById('timeChartCanvas'), {
+            type: 'line',
+            data: {
+                labels: Array(PTS).fill(''),
+                datasets: [
+                    { label: 'Kat 1', data: d1, borderColor: 'oklch(66% .07 222)',  backgroundColor: 'oklch(66% .07 222 / .08)', fill: true,  tension: 0.4, pointRadius: 0, borderWidth: 1.5 },
+                    { label: 'Kat 2', data: d2, borderColor: 'oklch(60% .05 222)',  backgroundColor: 'transparent', fill: false, tension: 0.4, pointRadius: 0, borderWidth: 1.5 },
+                    { label: 'Kat 3', data: d3, borderColor: 'oklch(48% .035 222)', backgroundColor: 'transparent', fill: false, tension: 0.4, pointRadius: 0, borderWidth: 1.5 },
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, animation: { duration: 0 },
+                plugins: { legend: { position: 'top', labels: { boxWidth: 10, padding: 14 } } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { display: false }, border: { color: BDR } },
+                    y: { grid: { color: BDR }, ticks: { precision: 0 }, border: { color: BDR }, min: 0 }
+                }
+            }
+        });
+
+        setInterval(function () {
+            const f1 = _n('floor1Count'), f2 = _n('floor2Count'), f3 = _n('floor3Count');
+
+            floorChart.data.datasets[0].data = [f1, f2, f3];
+            floorChart.update('none');
+
+            d1.push(f1); d1.shift();
+            d2.push(f2); d2.shift();
+            d3.push(f3); d3.shift();
+            timeChart.data.datasets[0].data = d1.slice();
+            timeChart.data.datasets[1].data = d2.slice();
+            timeChart.data.datasets[2].data = d3.slice();
+            timeChart.update('none');
+
+            _refreshBanner();
+        }, 5000);
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        initOverallCharts();
+        _showChartEmpty(true);
+    });
+
+})();
+</script>
+</body>
+</html>

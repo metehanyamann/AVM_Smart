@@ -1,0 +1,43 @@
+# Version Control
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.venv
+venv
+env
+
+# IDE / Editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# Docker (prevent recursive context)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Documentation
+*.md
+LICENSE
+
+# Environment (secrets loaded via docker-compose)
+.env
+.env.example
+
+# Test artifacts
+tests/
+.pytest_cache
+htmlcov
+.coverage
+
+# ONNX models (auto-downloaded at runtime, 300MB+)
+backend/infrastructure/models/*.onnx
+
+# OS
+Thumbs.db
+.DS_Store
